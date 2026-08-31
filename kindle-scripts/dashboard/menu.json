@@ -1,0 +1,6 @@
+{
+  "items": [
+    {"name": "启动仪表盘模式", "action": "bin/dashboard-on.sh"},
+    {"name": "退出仪表盘模式", "action": "bin/dashboard-off.sh"}
+  ]
+}

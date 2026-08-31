@@ -1,0 +1,11 @@
+{
+  "kindle_host": "192.168.x.x",
+  "kindle_port": 22,
+  "kindle_user": "root",
+  "ssh_key": "~/.ssh/id_kindle",
+  "refresh_interval": 600,
+  "ssh_timeout": 15,
+  "ssh_retries": 3,
+  "ssh_retry_delay": 15,
+  "deepseek_token": ""
+}
