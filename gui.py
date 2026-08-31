@@ -232,6 +232,31 @@ def api_daemon_stop():
     return jsonify({"ok": ok, "msg": msg})
 
 
+@app.route("/api/kindle/restore", methods=["POST"])
+def api_kindle_restore():
+    """恢复Kindle正常使用（退出仪表盘模式，后台执行）"""
+    import threading
+
+    def _do_restore():
+        from refresh import ssh_run, log
+        from settings import KINDLE_HOST
+        log("恢复Kindle正常使用...")
+
+        # 1. 停止keepalive防待机守护
+        ok1, _ = ssh_run(KINDLE_HOST, "pkill -f keepalive.sh 2>/dev/null; pkill -f 'lipc-wait-event' 2>/dev/null; echo OK", retries=1)
+        # 2. 清除RTC唤醒
+        ok2, _ = ssh_run(KINDLE_HOST, "echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null; echo OK", retries=1)
+        # 3. 恢复framework（Kindle原生界面）
+        ok3, _ = ssh_run(KINDLE_HOST, "/etc/init.d/framework start 2>/dev/null; echo OK", retries=1)
+
+        results = [("停止防待机", ok1), ("清除RTC唤醒", ok2), ("恢复framework", ok3)]
+        detail = "; ".join(f"{name}:{'✓' if ok else '✗'}" for name, ok in results)
+        log(f"恢复结果: {detail}")
+
+    threading.Thread(target=_do_restore, daemon=True).start()
+    return jsonify({"ok": True, "msg": "正在恢复Kindle正常使用（后台执行）... 约30秒后Kindle回到原生界面"})
+
+
 if __name__ == "__main__":
     # 记录PID（供stop_gui.bat停止使用）
     try:
