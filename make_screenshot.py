@@ -41,6 +41,8 @@ weather = get_weather()
 
 # 渲染效果图
 img = render_dashboard(sample_todos, weather, sample_deepseek)
+# 转回横屏方向（1024x758），README展示更直观
+img = img.rotate(-90, expand=True)
 out = BASE_DIR / "docs"
 out.mkdir(exist_ok=True)
 img.save(out / "screenshot.png")
