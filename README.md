@@ -65,8 +65,10 @@ ssh-copy-id root@<KINDLE_IP>
 └──────────────────────────────────────────────┘
             ↕ SSH (base64+stdin)
 ┌── Kindle端 (KPW2) ───────────────────────────┐
-│ keepalive.sh（防待机守护）                    │
-│   └─ deferSuspend 永不待机，SSH永远可用       │
+│ keepalive.sh（防待机+防屏保守护）             │
+│   ├─ deferSuspend 永不待机，SSH永远可用       │
+│   ├─ preventScreenSaver 防锁屏               │
+│   ├─ 每10秒轮询+刷新（PID文件防重复启动）     │
 │ eips 刷新 E-ink 屏幕                          │
 │ KUAL扩展：Dashboard（启动/退出仪表盘模式）     │
 └──────────────────────────────────────────────┘
@@ -139,18 +141,23 @@ ssh root@<KINDLE_IP> "chmod +x /mnt/us/dashboard/bin/keepalive.sh /mnt/us/extens
 ```
 > 注意：KUAL扩展需包含 `config.xml`（KUAL识别必需），缺失则KUAL不显示菜单。
 
-### 2. 防待机守护（keepalive.sh）
+### 2. 防待机+防屏保守护（keepalive.sh）
 - **位置**：`/mnt/us/dashboard/bin/keepalive.sh`
-- **原理**：监听 `readyToSuspend` 事件 → `deferSuspend 999999999` 无限延迟待机，SSH永远可用
+- **原理**（主循环每10秒轮询）：
+  - `deferSuspend 999999999`：无限延迟待机（防待机，SSH永远可用）
+  - `preventScreenSaver 1`：禁用屏保/锁屏（防锁屏）
+  - `eips -g` 定期刷新仪表盘：即使屏保出现，10秒内被覆盖回仪表盘
+  - 所有设置每10秒重置一次（防止被powerd/系统重置）
+- **防重复启动**：PID文件（`keepalive.pid`）机制，重复启动直接退出，保证只有1个进程
 - **开机自启**：`usbnetwork.sh` + `keepalive_autostart` 标志（开机45秒延迟后自动启动）
 - **手动启停**：
-  - 启动：`nohup /mnt/us/dashboard/bin/keepalive.sh --no-delay > /dev/null 2>&1 &`
-  - 停止：`pkill -f keepalive.sh`，然后 `echo 0 > /sys/class/rtc/rtc0/wakealarm`
+  - 启动：`setsid /mnt/us/dashboard/bin/keepalive.sh --no-delay </dev/null >/dev/null 2>&1 &`
+  - 停止：`kill $(cat /mnt/us/dashboard/keepalive.pid)`，然后 `echo 0 > /sys/class/rtc/rtc0/wakealarm`
 
 ### 3. KUAL扩展（Dashboard菜单）
 - `/mnt/us/extensions/dashboard/`（config.xml + menu.json + bin/）
 - **启动仪表盘模式**：创建自启标志 + 运行keepalive（重启后自动进仪表盘）
-- **退出仪表盘模式**：停止keepalive + 删除自启标志 + 恢复framework（重启后保持原生界面）
+- **退出仪表盘模式**：PID文件kill keepalive + pkill兜底 + 删除自启标志 + 恢复framework（重启后保持原生界面）
 
 ### 4. 恢复Kindle正常使用
 ```bash
@@ -167,7 +174,8 @@ ssh root@<IP> "/sbin/start framework"
 | IP频繁变化 | 路由器设置DHCP静态租约（绑定Kindle MAC固定IP） |
 | GUI报Permission denied | 必须用 start_gui.bat 正常环境启动，勿用WorkBuddy后台 |
 | GUI改代码后不生效 | 需重启GUI（改代码后进程加载旧版） |
-| Kindle待机 | 检查`pidof lipc-wait-event`；keepalive未运行时手动启动 |
+| Kindle待机/锁屏 | keepalive会自动防；检查`ps -ef \| grep keepalive`确认运行 |
+| keepalive重复启动 | 新版有PID文件防重复，只保留1个进程 |
 | dropbear崩溃 | 重启Kindle；keepalive会拉起dropbear |
 | KUAL不显示Dashboard | 确认extensions/dashboard/有config.xml |
 | 退出仪表盘屏幕不刷新 | 确认framework是start/running（/sbin/start framework） |
