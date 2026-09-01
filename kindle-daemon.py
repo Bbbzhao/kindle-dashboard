@@ -116,8 +116,7 @@ def daemon_loop():
         while True:
             # 检查停止标志
             if STOP_FLAG.exists():
-                log("收到停止信号，守护进程退出")
-                _stop_gui()
+                log("收到停止信号，守护进程退出（保留GUI控制面板）")
                 _write_status(False)
                 return
 
@@ -136,7 +135,6 @@ def daemon_loop():
                 time.sleep(1)
     except KeyboardInterrupt:
         log("守护进程被手动中断")
-        _stop_gui()
         _write_status(False)
 
 
