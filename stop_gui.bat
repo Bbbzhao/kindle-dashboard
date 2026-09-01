@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 title Í£Ö¹ Kindle Dashboard ¿ØÖÆÃæ°å
 cd /d D:\kindle-dashboard
 set /p PID=<output\gui.pid

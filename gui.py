@@ -12,6 +12,9 @@ import subprocess
 import platform
 from pathlib import Path
 
+import logging
+import logging.handlers
+
 from flask import Flask, jsonify, request, render_template
 
 BASE_DIR = Path(__file__).parent
@@ -26,6 +29,19 @@ OUTPUT_DIR = BASE_DIR / "output"
 LOG_FILE = OUTPUT_DIR / "refresh.log"
 STOP_FLAG = OUTPUT_DIR / "daemon_stop.flag"
 STATUS_FILE = OUTPUT_DIR / "daemon_status.json"
+
+# pythonw.exe运行无stderr，Werkzeug日志输出会崩溃，重定向到文件
+try:
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    _server_log = str(OUTPUT_DIR / "gui_server.log")
+    _fh = logging.FileHandler(_server_log, encoding="utf-8")
+    _fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _werkzeug_log = logging.getLogger("werkzeug")
+    _werkzeug_log.handlers = []
+    _werkzeug_log.addHandler(_fh)
+    _werkzeug_log.setLevel(logging.INFO)
+except Exception:
+    pass
 
 PYTHON_EXE = sys.executable
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
@@ -251,6 +267,14 @@ def api_kindle_exit():
     return jsonify({"ok": True, "msg": "正在退出仪表盘模式（后台执行）... Kindle将回到KUAL/原生界面"})
 
 
+def _safe_print(msg):
+    """安全打印（pythonw无控制台时print会崩溃）"""
+    try:
+        print(msg)
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     # 记录PID（供stop_gui.bat停止使用）
     try:
@@ -258,9 +282,9 @@ if __name__ == "__main__":
         (OUTPUT_DIR / "gui.pid").write_text(str(os.getpid()), encoding="utf-8")
     except Exception:
         pass
-    print("=" * 40)
-    print("Kindle Dashboard 控制面板")
-    print("访问 http://localhost:8080/")
-    print("停止服务: stop_gui.bat")
-    print("=" * 40)
+    _safe_print("=" * 40)
+    _safe_print("Kindle Dashboard 控制面板")
+    _safe_print("访问 http://localhost:8080/")
+    _safe_print("停止服务: stop_gui.bat")
+    _safe_print("=" * 40)
     app.run(host="0.0.0.0", port=8080, debug=False)
