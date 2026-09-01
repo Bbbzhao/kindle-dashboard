@@ -55,39 +55,50 @@ ssh-copy-id root@<KINDLE_IP>
 ## 一、系统架构
 
 ```
-┌── 电脑端 ──────────────────────────┐
-│ GUI面板 (http://localhost:8080)    │
-│   ├─ 修改配置 (config.json)        │
-│   ├─ 立即刷新 / 启停守护进程        │
-│   └─ 状态监控 / 推送日志            │
-│ render.py → refresh.py → SSH推送   │
-└───────────────────────────────────┘
+┌── 电脑端 ─────────────────────────────────────┐
+│ kindle-daemon.py（守护进程，常驻+开机自启）    │
+│   ├─ 自动拉起GUI控制面板 (http://localhost:8080)│
+│   │   修改配置 / 立即刷新 / 启停守护进程        │
+│   │   SSH测试 / 局域网扫描找Kindle             │
+│   │   退出仪表盘模式 / 状态监控 / 日志          │
+│   └─ 每240秒 render.py → refresh.py → SSH推送  │
+└──────────────────────────────────────────────┘
             ↕ SSH (base64+stdin)
-┌── Kindle端 (KPW2) ────────────────┐
-│ keepalive.sh（开机自启+防待机）    │
-│   └─ deferSuspend 永不待机        │
-│ eips 刷新 E-ink 屏幕               │
-└───────────────────────────────────┘
+┌── Kindle端 (KPW2) ───────────────────────────┐
+│ keepalive.sh（防待机守护）                    │
+│   └─ deferSuspend 永不待机，SSH永远可用       │
+│ eips 刷新 E-ink 屏幕                          │
+│ KUAL扩展：Dashboard（启动/退出仪表盘模式）     │
+└──────────────────────────────────────────────┘
 ```
 
 ## 二、日常使用
 
-### 守护进程（自动运行一切）
-守护进程 `kindle-daemon.py` 常驻运行，**启动时自动拉起GUI控制面板**，无需手动开启：
+### 全自动运行（无需手动操作）
+守护进程 `kindle-daemon.py` 开机自启，**启动时自动拉起GUI控制面板**：
 
 | 操作 | 方式 |
 |---|---|
-| 启动守护进程 | 双击 `kindle-daemon-start.bat`（或开机自启） |
-| 停止守护进程 | 双击 `kindle-daemon-stop.bat`（同时关闭GUI） |
-| 打开控制面板 | 浏览器访问 **http://localhost:8080**（守护进程已自动拉起） |
+| 打开控制面板 | 浏览器访问 **http://localhost:8080** |
+| 启动守护进程 | 双击 `kindle-daemon-start.bat` |
+| 停止守护进程 | 双击 `kindle-daemon-stop.bat`（**保留GUI**，可继续看状态） |
 | 手动开启GUI | 双击 `start_gui.bat`（可选，守护进程会自动拉起） |
+
+### GUI功能一览
+| 功能 | 说明 |
+|---|---|
+| **立即刷新** | 立即推送一次仪表盘 |
+| **开启/停止自动刷新** | 启停守护进程（停止后GUI保留） |
+| **测试SSH连接** | 检测当前IP的SSH连通性（TCP+握手+延迟） |
+| **扫描局域网找Kindle** | IP变化后自动发现新IP（约10秒） |
+| **退出仪表盘模式** | Kindle从仪表盘回到原生界面（约30秒） |
+| **参数配置** | Kindle IP、刷新周期、SSH、DeepSeek Token |
+| **状态监控/日志** | 守护进程状态、Kindle状态、推送日志（15秒刷新） |
 
 ### 常用操作
 | 操作 | 方式 |
 |---|---|
-| 立即刷新 | GUI页面点"立即刷新" |
-| 开启自动刷新 | GUI页面点"开启自动刷新" |
-| 停止自动刷新 | GUI页面点"停止自动刷新" |
+| Kindle重启后IP变了 | GUI → 测试SSH连接 → 扫描局域网 → 更新IP保存 |
 | 修改Kindle IP | GUI配置表单 → 保存 |
 | 手动刷新 | 双击 `manual_refresh.bat` |
 
@@ -118,58 +129,71 @@ ssh-copy-id root@<KINDLE_IP>
 
 ## 四、Kindle端部署
 
-### 1. 部署文件（通过SSH或USB）
+### 1. 部署文件（通过SSH）
 ```bash
-# 通过SSH传输（项目根目录下执行）
-scp -r kindle-scripts/dashboard/bin/keepalive.sh root@<KINDLE_IP>:/mnt/us/dashboard/bin/
+# 从项目根目录执行
 scp -r kindle-scripts/dashboard root@<KINDLE_IP>:/mnt/us/extensions/
+scp kindle-scripts/dashboard/bin/keepalive.sh root@<KINDLE_IP>:/mnt/us/dashboard/bin/
 scp kindle-scripts/usbnetwork.sh root@<KINDLE_IP>:/mnt/us/usbnet/bin/usbnetwork.sh
-ssh root@<KINDLE_IP> "chmod +x /mnt/us/dashboard/bin/keepalive.sh; touch /mnt/us/dashboard/keepalive_autostart"
+ssh root@<KINDLE_IP> "chmod +x /mnt/us/dashboard/bin/keepalive.sh /mnt/us/extensions/dashboard/bin/*.sh"
 ```
+> 注意：KUAL扩展需包含 `config.xml`（KUAL识别必需），缺失则KUAL不显示菜单。
 
 ### 2. 防待机守护（keepalive.sh）
 - **位置**：`/mnt/us/dashboard/bin/keepalive.sh`
-- **开机自启**：已配置（usbnetwork.sh + keepalive_autostart标志，开机45秒延迟后自动启动）
+- **原理**：监听 `readyToSuspend` 事件 → `deferSuspend 999999999` 无限延迟待机，SSH永远可用
+- **开机自启**：`usbnetwork.sh` + `keepalive_autostart` 标志（开机45秒延迟后自动启动）
 - **手动启停**：
   - 启动：`nohup /mnt/us/dashboard/bin/keepalive.sh --no-delay > /dev/null 2>&1 &`
   - 停止：`pkill -f keepalive.sh`，然后 `echo 0 > /sys/class/rtc/rtc0/wakealarm`
 
-### 3. KUAL扩展（可选，手动管理仪表盘模式）
-- `/mnt/us/extensions/dashboard/`（重启Kindle后KUAL显示 Dashboard 菜单）
-- **启动仪表盘模式** / **退出仪表盘模式**
+### 3. KUAL扩展（Dashboard菜单）
+- `/mnt/us/extensions/dashboard/`（config.xml + menu.json + bin/）
+- **启动仪表盘模式**：创建自启标志 + 运行keepalive（重启后自动进仪表盘）
+- **退出仪表盘模式**：停止keepalive + 删除自启标志 + 恢复framework（重启后保持原生界面）
 
 ### 4. 恢复Kindle正常使用
 ```bash
-ssh root@<IP> "/etc/init.d/framework start"
+ssh root@<IP> "/sbin/start framework"
 ```
-或长按电源键7秒重启（重启后 keepalive 若已配置自启会再次进入仪表盘模式）。
+> KPW2的framework由upstart管理，命令在 `/sbin`（SSH shell的PATH不含/sbin，需用完整路径）。
+> 或长按电源键7秒重启。
 
 ## 五、故障排查
 
 | 问题 | 解决 |
 |---|---|
-| SSH连不上 | 检查Kindle WiFi；确认keepalive在运行 |
+| SSH连不上 | GUI点"测试SSH连接"诊断；IP变了就"扫描局域网找Kindle" |
+| IP频繁变化 | 路由器设置DHCP静态租约（绑定Kindle MAC固定IP） |
 | GUI报Permission denied | 必须用 start_gui.bat 正常环境启动，勿用WorkBuddy后台 |
-| Kindle待机 | 重启Kindle后等45秒（keepalive自启延迟），检查`pidof lipc-wait-event` |
-| IP变了 | GUI配置修改或改config.json |
+| GUI改代码后不生效 | 需重启GUI（改代码后进程加载旧版） |
+| Kindle待机 | 检查`pidof lipc-wait-event`；keepalive未运行时手动启动 |
 | dropbear崩溃 | 重启Kindle；keepalive会拉起dropbear |
+| KUAL不显示Dashboard | 确认extensions/dashboard/有config.xml |
+| 退出仪表盘屏幕不刷新 | 确认framework是start/running（/sbin/start framework） |
 
 ## 六、项目文件（D:\kindle-dashboard\）
 
 | 文件 | 说明 |
 |---|---|
-| `gui.py` | 控制面板服务（8080端口） |
-| `render.py` | 渲染引擎（1024×758横屏） |
-| `refresh.py` | 推送脚本（base64+stdin+eips） |
-| `kindle-daemon.py` | 守护进程（240秒循环，自动拉起GUI） |
+| `gui.py` | 控制面板服务（8080端口，SSH测试/扫描/退出仪表盘） |
+| `kindle-daemon.py` | 守护进程（自动拉起GUI，停止保留GUI） |
+| `render.py` | 渲染引擎（1024×758横屏，标题居中） |
+| `refresh.py` | 推送脚本（base64+stdin+eips，Git Bash ssh） |
+| `deepseek_data.py` | DeepSeek真实消费数据（网页端Token） |
 | `settings.py` | 配置（从config.json读取） |
-| `config.json` | GUI可写配置 |
+| `config.json` | 可写配置（gitignore排除，含Token） |
+| `config.example.json` | 配置模板（无隐私） |
 | `kindle-daemon-start.bat` | 启动守护进程 |
-| `kindle-daemon-stop.bat` | 停止守护进程（含GUI） |
-| `app_old.py` | 旧版HTTP图片服务（已废弃，勿用） |
-| `start_gui.bat` | 一键启动控制面板 |
-| `start_daemon.bat` | 单独启动守护进程 |
+| `kindle-daemon-stop.bat` | 停止守护进程（保留GUI） |
+| `start_gui.bat` / `stop_gui.bat` | 手动启停GUI（可选） |
 | `manual_refresh.bat` | 手动刷新 |
+| `install_task.ps1` | 计划任务安装（可选） |
 | `templates/index.html` | 控制面板网页 |
-| `kindle-scripts/` | Kindle端脚本（keepalive等） |
+| `kindle-scripts/` | Kindle端脚本（keepalive/dashboard/usbnetwork） |
 | `output/` | 日志与状态文件 |
+
+## 七、GitHub 私有库
+
+- 仓库：https://github.com/Bbbzhao/kindle-dashboard.git
+- `config.json`（含Token）、`output/`、`.cleanup_backup/` 已加入 `.gitignore`，不会泄露隐私
