@@ -14,8 +14,8 @@ if [ "$1" != "--no-delay" ] && [ -f /mnt/us/dashboard/keepalive_autostart ]; the
   sleep 45
 fi
 
-# 停止framework（防触摸干扰 + 减少系统活动，KPW2为upstart管理）
-stop framework 2>/dev/null || /etc/init.d/framework stop 2>/dev/null
+# 停止framework（防触摸干扰 + 减少系统活动，upstart命令在/sbin需完整路径）
+/sbin/stop framework 2>/dev/null || /etc/init.d/framework stop 2>/dev/null
 # 防屏保
 lipc-set-prop com.lab126.powerd preventScreenSaver 1
 
