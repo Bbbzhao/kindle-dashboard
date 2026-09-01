@@ -74,6 +74,10 @@ ssh-copy-id root@<KINDLE_IP>
 └──────────────────────────────────────────────┘
 ```
 
+### 效果图（Kindle横放实际显示）
+
+![仪表盘效果图](docs/screenshot.png)
+
 ## 二、日常使用
 
 ### 全自动运行（无需手动操作）
@@ -199,6 +203,8 @@ ssh root@<IP> "/sbin/start framework"
 | `install_task.ps1` | 计划任务安装（可选） |
 | `templates/index.html` | 控制面板网页 |
 | `kindle-scripts/` | Kindle端脚本（keepalive/dashboard/usbnetwork） |
+| `make_screenshot.py` | 生成README效果图（示例数据，无隐私） |
+| `docs/screenshot.png` | 仪表盘效果图 |
 | `output/` | 日志与状态文件 |
 
 ## 七、隐私保护（.gitignore）
