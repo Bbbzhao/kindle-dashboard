@@ -122,7 +122,7 @@ ssh-copy-id root@<KINDLE_IP>
 ```
 
 ### 数据源
-- **待办**：金鱼本 `D:\WorkBuddyData\Claw\todos_data.json`
+- **待办**：金鱼本 `D:\WorkBuddyData\Claw\todos_data.json`（**个人待办记录**，可使用AI（如WorkBuddy）添加/修改/删除，说"记到金鱼本"即可操作）
 - **天气**：Open-Meteo API（佛山，免费无需Key）
 - **DeepSeek消费**：真实数据（网页端Token，platform.deepseek.com）
   - Token获取：登录 platform.deepseek.com → F12 → Network → 请求头 Authorization
