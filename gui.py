@@ -267,6 +267,81 @@ def api_kindle_exit():
     return jsonify({"ok": True, "msg": "正在退出仪表盘模式（后台执行）... Kindle将回到KUAL/原生界面"})
 
 
+@app.route("/api/kindle/check", methods=["POST"])
+def api_kindle_check():
+    """测试当前配置IP的SSH连通性"""
+    import socket
+    import time
+    from settings import KINDLE_HOST, KINDLE_PORT
+
+    start = time.time()
+    # 1. TCP端口测试
+    tcp_ok = False
+    try:
+        with socket.create_connection((KINDLE_HOST, KINDLE_PORT), timeout=3):
+            tcp_ok = True
+    except Exception:
+        pass
+
+    # 2. SSH真实测试
+    from refresh import ssh_run
+    ssh_ok, out = ssh_run(KINDLE_HOST, "echo PONG", retries=1, timeout=8)
+    latency = round((time.time() - start) * 1000)
+
+    if ssh_ok:
+        msg = f"✅ {KINDLE_HOST} SSH连接正常（{latency}ms）"
+    elif tcp_ok:
+        msg = f"⚠️ {KINDLE_HOST} 端口通但SSH握手失败（可能dropbear未启动）"
+    else:
+        msg = f"❌ {KINDLE_HOST} 不可达（IP可能已变，建议扫描局域网）"
+
+    return jsonify({
+        "host": KINDLE_HOST,
+        "tcp": tcp_ok,
+        "ssh": ssh_ok,
+        "latency_ms": latency,
+        "online": ssh_ok,
+        "msg": msg,
+    })
+
+
+@app.route("/api/kindle/discover", methods=["POST"])
+def api_kindle_discover():
+    """扫描局域网找Kindle（22端口+SSH banner识别）"""
+    import socket
+    import concurrent.futures
+    from settings import KINDLE_HOST
+
+    prefix = ".".join(KINDLE_HOST.split(".")[:3])
+    found = []
+
+    def _check(ip):
+        try:
+            with socket.create_connection((ip, 22), timeout=1.5):
+                s = socket.create_connection((ip, 22), timeout=2)
+                s.settimeout(2)
+                banner = s.recv(50)
+                s.close()
+                if b"SSH" in banner or b"ssh" in banner:
+                    return ip
+        except Exception:
+            pass
+        return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=40) as ex:
+        futures = [ex.submit(_check, f"{prefix}.{i}") for i in range(1, 255)]
+        for f in concurrent.futures.as_completed(futures):
+            ip = f.result()
+            if ip:
+                found.append(ip)
+
+    return jsonify({
+        "found": found,
+        "prefix": prefix,
+        "msg": f"扫描{prefix}.1-254完成，发现{len(found)}个SSH设备: {', '.join(found) if found else '无'}"
+    })
+
+
 def _safe_print(msg):
     """安全打印（pythonw无控制台时print会崩溃）"""
     try:

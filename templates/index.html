@@ -57,8 +57,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
       <button class="btn-success" onclick="startDaemon()">开启自动刷新</button>
       <button class="btn-danger" onclick="stopDaemon()">停止自动刷新</button>
       <button class="btn-ghost" onclick="exitDashboard()">退出仪表盘模式</button>
+      <button class="btn-ghost" onclick="checkKindle()">测试SSH连接</button>
+      <button class="btn-ghost" onclick="discoverKindle()">扫描局域网找Kindle</button>
     </div>
     <div class="msg" id="actionMsg"></div>
+    <div class="msg" id="discoverMsg"></div>
   </div>
 
   <div class="card">
@@ -205,6 +208,26 @@ async function exitDashboard() {
   const r = await api('/api/kindle/exit', 'POST', {});
   showMsg('actionMsg', r.ok, r.msg);
   setTimeout(loadStatus, 3000);
+}
+
+async function checkKindle() {
+  showMsg('actionMsg', true, '正在测试SSH连接...');
+  const r = await api('/api/kindle/check', 'POST', {});
+  showMsg('actionMsg', r.online, r.msg);
+  setTimeout(loadStatus, 2000);
+}
+
+async function discoverKindle() {
+  const el = document.getElementById('discoverMsg');
+  el.className = 'msg ok';
+  el.textContent = '正在扫描局域网（约10秒）...';
+  const r = await api('/api/kindle/discover', 'POST', {});
+  let text = r.msg;
+  if (r.found && r.found.length > 0) {
+    text += '。建议把Kindle IP更新到配置表单并保存！';
+  }
+  el.className = 'msg ' + (r.found && r.found.length > 0 ? 'ok' : 'err');
+  el.textContent = text;
 }
 
 async function saveConfig() {
