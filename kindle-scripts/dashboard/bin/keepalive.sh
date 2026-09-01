@@ -1,7 +1,10 @@
 #!/bin/sh
-# Kindle仪表盘守护：利用 deferSuspend 无限延迟待机，让Kindle保持常亮
-# 原理：监听 readyToSuspend 事件（进入待机前触发），设置 deferSuspend 大值
-#       Kindle永远停留在"Ready to Suspend"状态，不会真正待机，SSH保持可用
+# Kindle仪表盘守护：防待机 + 防屏保（锁屏）
+# 原理：
+#   1. deferSuspend 999999999：无限延迟待机（拦截readyToSuspend）
+#   2. preventScreenSaver 1：禁用屏保（锁屏）
+#   3. 定期eips刷新仪表盘：即使屏保出现，10秒内被覆盖回仪表盘
+#   4. 所有设置每10秒重置一次（防止被powerd/系统重置）
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /mnt/us/dashboard/keepalive.log
@@ -16,38 +19,28 @@ fi
 
 # 停止framework（防触摸干扰 + 减少系统活动，upstart命令在/sbin需完整路径）
 /sbin/stop framework 2>/dev/null || /etc/init.d/framework stop 2>/dev/null
-# 防屏保
-lipc-set-prop com.lab126.powerd preventScreenSaver 1
 
-log "仪表盘守护启动（deferSuspend防待机模式）"
+log "仪表盘守护启动（防待机+防屏保模式）"
 
-# 确保dropbear运行
-if ! pidof dropbear >/dev/null 2>&1; then
-  /usr/sbin/dropbear -p 22 -r /mnt/us/usbnet/etc/dropbear_rsa_host_key 2>/dev/null || \
-  /usr/sbin/dropbear -p 22 2>/dev/null
-  log "dropbear已启动"
-fi
-
-# 主循环：等待readyToSuspend事件并无限延迟待机
+# 主循环：定期执行所有防护设置
 while true; do
-  # 等待进入待机前的事件（会阻塞直到该事件触发）
-  lipc-wait-event -m com.lab126.powerd readyToSuspend 2>/dev/null
-
-  # 进入待机前，无限延迟待机
+  # 防屏保（锁屏）——每轮重置，防止被powerd清除
+  lipc-set-prop com.lab126.powerd preventScreenSaver 1 2>/dev/null
+  # 防待机——保持deferSuspend大值
   lipc-set-prop com.lab126.powerd deferSuspend 999999999 2>/dev/null
-  log "已拦截待机，deferSuspend=999999999"
 
-  # 确保dropbear运行
+  # 确保dropbear运行（SSH保活）
   if ! pidof dropbear >/dev/null 2>&1; then
     /usr/sbin/dropbear -p 22 -r /mnt/us/usbnet/etc/dropbear_rsa_host_key 2>/dev/null || \
     /usr/sbin/dropbear -p 22 2>/dev/null
-    log "dropbear已重启"
+    log "dropbear已启动"
   fi
 
-  # 显示当前dashboard
+  # 定期刷新仪表盘（覆盖可能出现的屏保/锁屏画面）
   if [ -f /mnt/us/dashboard.png ]; then
-    /usr/sbin/eips -f -g /mnt/us/dashboard.png 2>/dev/null
+    /usr/sbin/eips -g /mnt/us/dashboard.png 2>/dev/null
   fi
 
-  sleep 2
+  # 每10秒一轮
+  sleep 10
 done
