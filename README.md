@@ -72,16 +72,21 @@ ssh-copy-id root@<KINDLE_IP>
 
 ## 二、日常使用
 
-### 启动控制面板
-1. 双击 `D:\kindle-dashboard\start_gui.bat`
-2. 浏览器访问 **http://localhost:8080**
-3. 在页面中可：修改配置、立即刷新、开启/停止自动刷新、查看日志
+### 守护进程（自动运行一切）
+守护进程 `kindle-daemon.py` 常驻运行，**启动时自动拉起GUI控制面板**，无需手动开启：
+
+| 操作 | 方式 |
+|---|---|
+| 启动守护进程 | 双击 `kindle-daemon-start.bat`（或开机自启） |
+| 停止守护进程 | 双击 `kindle-daemon-stop.bat`（同时关闭GUI） |
+| 打开控制面板 | 浏览器访问 **http://localhost:8080**（守护进程已自动拉起） |
+| 手动开启GUI | 双击 `start_gui.bat`（可选，守护进程会自动拉起） |
 
 ### 常用操作
 | 操作 | 方式 |
 |---|---|
 | 立即刷新 | GUI页面点"立即刷新" |
-| 开启自动刷新 | GUI页面点"开启自动刷新"（每240秒推送） |
+| 开启自动刷新 | GUI页面点"开启自动刷新" |
 | 停止自动刷新 | GUI页面点"停止自动刷新" |
 | 修改Kindle IP | GUI配置表单 → 保存 |
 | 手动刷新 | 双击 `manual_refresh.bat` |
@@ -156,9 +161,11 @@ ssh root@<IP> "/etc/init.d/framework start"
 | `gui.py` | 控制面板服务（8080端口） |
 | `render.py` | 渲染引擎（1024×758横屏） |
 | `refresh.py` | 推送脚本（base64+stdin+eips） |
-| `daemon.py` | 守护进程（240秒循环） |
+| `kindle-daemon.py` | 守护进程（240秒循环，自动拉起GUI） |
 | `settings.py` | 配置（从config.json读取） |
 | `config.json` | GUI可写配置 |
+| `kindle-daemon-start.bat` | 启动守护进程 |
+| `kindle-daemon-stop.bat` | 停止守护进程（含GUI） |
 | `app_old.py` | 旧版HTTP图片服务（已废弃，勿用） |
 | `start_gui.bat` | 一键启动控制面板 |
 | `start_daemon.bat` | 单独启动守护进程 |

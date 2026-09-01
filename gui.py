@@ -126,7 +126,7 @@ def start_daemon():
             STOP_FLAG.unlink()
     except Exception:
         pass
-    cmd = [PYTHON_EXE, str(BASE_DIR / "daemon.py")]
+    cmd = [PYTHON_EXE, str(BASE_DIR / "kindle-daemon.py")]
     subprocess.Popen(cmd, cwd=str(BASE_DIR), creationflags=NO_WINDOW,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1)

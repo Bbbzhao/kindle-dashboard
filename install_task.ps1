@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 # 项目路径（自动检测当前脚本所在目录）
 $ProjectDir = $PSScriptRoot
 $PythonExe = "C:\Users\ake\.workbuddy\binaries\python\envs\default\Scripts\python.exe"
-$DaemonPy = Join-Path $ProjectDir "daemon.py"
+$DaemonPy = Join-Path $ProjectDir "kindle-daemon.py"
 
 Write-Host "=== Kindle Dashboard 计划任务安装 ===" -ForegroundColor Cyan
 Write-Host "项目目录: $ProjectDir"
