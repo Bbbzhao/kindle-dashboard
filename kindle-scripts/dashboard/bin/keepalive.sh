@@ -10,6 +10,22 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /mnt/us/dashboard/keepalive.log
 }
 
+PID_FILE=/mnt/us/dashboard/keepalive.pid
+
+# 防重复启动：检查PID文件，若已有keepalive在运行则退出
+if [ -f "$PID_FILE" ]; then
+  OLDPID=$(cat "$PID_FILE" 2>/dev/null)
+  if [ -n "$OLDPID" ] && kill -0 "$OLDPID" 2>/dev/null; then
+    log "keepalive已在运行 (PID $OLDPID)，退出本次启动"
+    exit 0
+  fi
+  rm -f "$PID_FILE"
+fi
+# 记录当前PID
+echo $$ > "$PID_FILE"
+# 退出时清理PID文件
+trap 'rm -f "$PID_FILE"' EXIT
+
 # 开机自启时延迟启动（等待framework启动完成，避免冲突）
 # 手动启动时通过参数 --no-delay 跳过延迟
 if [ "$1" != "--no-delay" ] && [ -f /mnt/us/dashboard/keepalive_autostart ]; then
