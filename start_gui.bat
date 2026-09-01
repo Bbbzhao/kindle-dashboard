@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title Kindle Dashboard æ§åˆ¶é¢æ¿
+title Kindle Dashboard ¿ØÖÆÃæ°å
 cd /d D:\kindle-dashboard
-REM æ— çª—å£è¿è¡ŒGUIæœåŠ¡ï¼ˆpythonw.exeï¼‰ï¼Œå¯åŠ¨åè‡ªåŠ¨æ‰“å¼€æµè§ˆå™¨
-echo æ­£åœ¨å¯åŠ¨ Kindle Dashboard æ§åˆ¶é¢æ¿...
+REM ÎŞ´°¿ÚÔËĞĞGUI·şÎñ£¨pythonw.exe£©£¬Æô¶¯ºó×Ô¶¯´ò¿ªä¯ÀÀÆ÷
+echo ÕıÔÚÆô¶¯ Kindle Dashboard ¿ØÖÆÃæ°å...
 C:\Users\ake\.workbuddy\binaries\python\envs\default\Scripts\pythonw.exe gui.py
-REM è‡ªåŠ¨æ‰“å¼€æµè§ˆå™¨
+REM ×Ô¶¯´ò¿ªä¯ÀÀÆ÷
 start http://localhost:8080
 exit

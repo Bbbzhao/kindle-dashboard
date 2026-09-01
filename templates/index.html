@@ -56,6 +56,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
       <button class="btn-primary" onclick="doRefresh()">立即刷新</button>
       <button class="btn-success" onclick="startDaemon()">开启自动刷新</button>
       <button class="btn-danger" onclick="stopDaemon()">停止自动刷新</button>
+      <button class="btn-ghost" onclick="exitDashboard()">退出仪表盘模式</button>
     </div>
     <div class="msg" id="actionMsg"></div>
   </div>
@@ -197,6 +198,13 @@ async function stopDaemon() {
   const r = await api('/api/daemon/stop', 'POST', {});
   showMsg('actionMsg', r.ok, r.msg);
   setTimeout(loadStatus, 2000);
+}
+
+async function exitDashboard() {
+  if (!confirm('确认退出仪表盘模式？\nKindle将停止防待机并回到KUAL/原生界面。')) return;
+  const r = await api('/api/kindle/exit', 'POST', {});
+  showMsg('actionMsg', r.ok, r.msg);
+  setTimeout(loadStatus, 3000);
 }
 
 async function saveConfig() {

@@ -1,18 +1,18 @@
 @echo off
 chcp 65001 >nul
-title åœæ­¢ Kindle Dashboard æ§åˆ¶é¢æ¿
+title Í£Ö¹ Kindle Dashboard ¿ØÖÆÃæ°å
 cd /d D:\kindle-dashboard
 set /p PID=<output\gui.pid
 if defined PID (
     taskkill /F /PID %PID% >nul 2>&1
     if %errorlevel%==0 (
-        echo Kindle Dashboard æ§åˆ¶é¢æ¿å·²åœæ­¢
+        echo Kindle Dashboard ¿ØÖÆÃæ°åÒÑÍ£Ö¹
     ) else (
-        echo è¿›ç¨‹å¯èƒ½å·²åœæ­¢ï¼Œå°è¯•æ¸…ç†æ®‹ç•™...
+        echo ½ø³Ì¿ÉÄÜÒÑÍ£Ö¹£¬³¢ÊÔÇåÀí²ĞÁô...
         taskkill /F /IM pythonw.exe >nul 2>&1
     )
 ) else (
-    echo æœªæ‰¾åˆ°GUIè¿›ç¨‹è®°å½•
+    echo Î´ÕÒµ½GUI½ø³Ì¼ÇÂ¼
 )
 timeout /t 2 >nul
 exit

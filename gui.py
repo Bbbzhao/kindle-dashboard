@@ -232,6 +232,25 @@ def api_daemon_stop():
     return jsonify({"ok": ok, "msg": msg})
 
 
+@app.route("/api/kindle/exit", methods=["POST"])
+def api_kindle_exit():
+    """退出仪表盘模式：SSH执行Kindle端dashboard-off.sh，恢复framework回到KUAL界面"""
+    import threading
+
+    def _do_exit():
+        from refresh import ssh_run, log
+        from settings import KINDLE_HOST
+        log("退出仪表盘模式...")
+        # 执行Kindle端退出脚本（停止keepalive + 恢复framework）
+        ok, out = ssh_run(KINDLE_HOST,
+            "sh /mnt/us/extensions/dashboard/bin/dashboard-off.sh; echo EXIT_OK",
+            retries=2, timeout=30)
+        log(f"退出结果: {'成功' if ok else '失败'} {str(out)[:80]}")
+
+    threading.Thread(target=_do_exit, daemon=True).start()
+    return jsonify({"ok": True, "msg": "正在退出仪表盘模式（后台执行）... Kindle将回到KUAL/原生界面"})
+
+
 if __name__ == "__main__":
     # 记录PID（供stop_gui.bat停止使用）
     try:
