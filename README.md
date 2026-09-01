@@ -201,7 +201,10 @@ ssh root@<IP> "/sbin/start framework"
 | `kindle-scripts/` | Kindle端脚本（keepalive/dashboard/usbnetwork） |
 | `output/` | 日志与状态文件 |
 
-## 七、GitHub 私有库
+## 七、隐私保护（.gitignore）
 
-- 仓库：https://github.com/Bbbzhao/kindle-dashboard.git
-- `config.json`（含Token）、`output/`、`.cleanup_backup/` 已加入 `.gitignore`，不会泄露隐私
+项目通过 `.gitignore` 排除隐私文件，提交GitHub不会泄露：
+- `config.json`（含DeepSeek Token、Kindle IP）
+- `output/`（日志、状态、图片缓存）
+- `.cleanup_backup/`（清理备份）
+- `__pycache__/`、`*.pyc`（Python缓存）
