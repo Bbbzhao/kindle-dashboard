@@ -1,0 +1,2 @@
+# Windows批处理文件必须CRLF行尾（cmd对LF解析错乱导致命令丢失）
+*.bat text eol=crlf
