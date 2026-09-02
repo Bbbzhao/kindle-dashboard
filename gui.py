@@ -204,9 +204,19 @@ def api_status():
     cfg = read_config()
     status = get_daemon_status()
     log = read_log()
+    # 读取Kindle电量缓存（daemon/刷新时更新）
+    battery = None
+    try:
+        bf = OUTPUT_DIR / "battery.json"
+        if bf.exists():
+            import json as _json
+            battery = _json.loads(bf.read_text(encoding="utf-8"))
+    except Exception:
+        pass
     return jsonify({
         "config": cfg,
         "daemon": status,
+        "battery": battery,
         "log": log,
         "server_time": time.strftime("%Y-%m-%d %H:%M:%S"),
     })

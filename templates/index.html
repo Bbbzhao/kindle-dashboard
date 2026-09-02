@@ -49,6 +49,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     <div class="status-bar">
       <div class="status-item"><span class="dot" id="dotDaemon"></span><span>守护进程: <b id="daemonState">检测中...</b></span></div>
       <div class="status-item"><span class="dot" id="dotKindle"></span><span>Kindle: <b id="kindleState">检测中...</b></span></div>
+      <div class="status-item">Kindle电量: <b id="kindleBattery">-</b></div>
       <div class="status-item">刷新周期: <b id="curInterval">-</b> 秒</div>
       <div class="status-item">更新时间: <b id="lastUpdate">-</b></div>
     </div>
@@ -156,6 +157,16 @@ async function loadStatus() {
     else if (lastFail) kstate = '最近刷新失败';
     dotKindle.className = 'dot ' + (lastSuccess ? 'on' : (lastFail ? 'warn' : 'off'));
     document.getElementById('kindleState').textContent = kstate;
+
+    // Kindle电量（读缓存，daemon刷新时更新）
+    const battEl = document.getElementById('kindleBattery');
+    const bt = data.battery;
+    if (bt && bt.ok && bt.level !== null) {
+      const chargeMark = bt.charging ? ' 充电中' : (bt.status === 'Full' ? ' 已充满' : '');
+      battEl.textContent = bt.level + '%' + chargeMark;
+    } else {
+      battEl.textContent = '未知';
+    }
 
     document.getElementById('curInterval').textContent = data.config.refresh_interval;
     document.getElementById('lastUpdate').textContent = data.daemon.last_update || '-';

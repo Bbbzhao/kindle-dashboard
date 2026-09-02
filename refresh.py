@@ -5,6 +5,7 @@
 """
 import os
 import sys
+import json
 import time
 import socket
 import subprocess
@@ -107,6 +108,49 @@ def ssh_run(host, command, retries=None, timeout=30, stdin_data=None):
     return False, ""
 
 
+BATTERY_FILE = OUTPUT_DIR / "battery.json"
+
+
+def get_kindle_battery(host, timeout=12):
+    """查询Kindle电量与充电状态（SSH），结果缓存到 output/battery.json"""
+    # 遍历电源设备读 capacity/status（兼容不同型号路径）
+    cmd = (
+        "for d in /sys/class/power_supply/*; do "
+        "c=$(cat $d/capacity 2>/dev/null); "
+        "s=$(cat $d/status 2>/dev/null); "
+        "if [ -n \"$c\" ]; then echo \"${c}|${s}\"; break; fi; "
+        "done"
+    )
+    ok, out = ssh_run(host, cmd, retries=1, timeout=timeout)
+    result = {"level": None, "charging": None, "status": None, "ok": False, "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+
+    if ok:
+        out = (out or "").strip().splitlines()
+        for line in out:
+            if "|" in line:
+                level_s, status_s = line.split("|", 1)
+                try:
+                    result["level"] = int(level_s.strip())
+                except (ValueError, TypeError):
+                    continue
+                result["status"] = status_s.strip()
+                result["charging"] = result["status"] == "Charging"
+                result["ok"] = True
+                break
+
+    # 缓存写入（GUI读取）
+    try:
+        OUTPUT_DIR.mkdir(exist_ok=True)
+        BATTERY_FILE.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+    if result["ok"]:
+        log(f"Kindle电量: {result['level']}% {result['status']}")
+    else:
+        log("Kindle电量查询失败")
+    return result
+
+
 def push_and_refresh(host):
     """base64+stdin传输 + eips刷新，合并为单次SSH连接（避免dropbear频率限制）"""
     import base64
@@ -141,8 +185,11 @@ def main():
     log("=" * 50)
     log("开始刷新dashboard")
 
-    # 1. 渲染图片（1024×758横屏）
-    png = render()
+    # 0. 查询Kindle电量/充电状态（渲染到仪表盘+缓存供GUI）
+    battery = get_kindle_battery(KINDLE_HOST)
+
+    # 1. 渲染图片（1024×758横屏，右上角含电量）
+    png = render(battery)
     log(f"渲染完成: {png}")
 
     # 2. 推送到Kindle（带重试）
