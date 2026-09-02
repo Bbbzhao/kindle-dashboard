@@ -134,29 +134,31 @@ def render_dashboard(todos=None, weather=None, deepseek=None, battery=None):
     # ============ 标题栏 ============
     draw.text((30, 12), "个人仪表盘", font=font_title, fill=0)
     draw.text((250, 22), WEATHER_CITY_CN, font=font_small, fill=128)
-    # 右上角：Kindle电量 + 更新时间
-    right_x = 994
+    # 右上角第一行：更新时间
+    update_text = f"更新 {datetime.now().strftime('%H:%M')}"
+    update_w = draw.textlength(update_text, font=font_small)
+    draw.text((994 - update_w, 16), update_text, font=font_small, fill=100)
+    # 右上角第二行：Kindle电量（电池图标 + 百分比/充电状态，避免与更新时间重叠）
     if battery and battery.get("level") is not None:
-        # 电池图标（外壳+正极）
-        bx, by = right_x - 96, 16
-        draw.rectangle([bx, by, bx + 30, by + 15], outline=0, width=2)
-        draw.rectangle([bx + 30, by + 4, bx + 34, by + 11], fill=0)
-        # 电量填充（按百分比）
         level = max(0, min(100, int(battery.get("level", 0))))
-        fill_w = int(26 * level / 100)
+        # 电池图标
+        icon_w, icon_h = 34, 15
+        ix = 986 - icon_w          # 图标右边界（留右边距）
+        iy = 40                    # 第二行
+        draw.rectangle([ix, iy, ix + icon_w, iy + icon_h], outline=0, width=2)
+        draw.rectangle([ix + icon_w, iy + 4, ix + icon_w + 4, iy + icon_h - 4], fill=0)
+        # 电量填充（按百分比）
+        fill_w = int((icon_w - 6) * level / 100)
         if fill_w > 0:
-            draw.rectangle([bx + 3, by + 3, bx + 3 + fill_w, by + 12], fill=0)
-        # 电量百分比文字（电池图标下方）
+            draw.rectangle([ix + 3, iy + 3, ix + 3 + fill_w, iy + icon_h - 3], fill=0)
+        # 电量文字（图标左侧，垂直居中）
         batt_text = f"{level}%"
         if battery.get("charging"):
             batt_text += " 充电中"
+        elif battery.get("status") == "Full":
+            batt_text += " 已充满"
         batt_w = draw.textlength(batt_text, font=font_tiny)
-        draw.text((bx + 17 - batt_w / 2, by + 17), batt_text, font=font_tiny, fill=100)
-        right_x = bx - 14  # 更新时间往左让位
-    # 更新时间（右上角，电量左侧）
-    update_text = f"更新 {datetime.now().strftime('%H:%M')}"
-    update_w = draw.textlength(update_text, font=font_small)
-    draw.text((right_x - update_w, 22), update_text, font=font_small, fill=100)
+        draw.text((ix - 10 - batt_w, iy + 1), batt_text, font=font_tiny, fill=0)
     draw.line([(30, 60), (994, 60)], fill=0, width=2)
 
     y_offset = 75
