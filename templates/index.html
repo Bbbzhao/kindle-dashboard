@@ -66,6 +66,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   </div>
 
   <div class="card">
+    <h2>传书到Kindle</h2>
+    <p style="margin:0 0 10px;color:var(--color-text-secondary,#666);font-size:13px;">选择电子书文件（可多选），直接上传到 Kindle 的 documents/ 文件夹，无需USB连接</p>
+    <input type="file" id="bookFiles" multiple accept=".epub,.mobi,.azw3,.azw,.pdf,.txt,.fb2,.cbz,.cbr,.docx,.html" style="margin-bottom:10px;">
+    <div>
+      <button class="btn-success" onclick="uploadBooks()">上传到Kindle</button>
+      <span id="uploadHint" style="margin-left:10px;color:#999;font-size:12px;">支持 epub/mobi/azw3/pdf/txt 等（≤25MB/个）</span>
+    </div>
+    <div class="msg" id="uploadMsg" style="margin-top:8px;"></div>
+    <div id="uploadResults"></div>
+  </div>
+
+  <div class="card">
     <h2>参数配置</h2>
     <div class="form-grid">
       <div class="form-item">
@@ -239,6 +251,41 @@ async function discoverKindle() {
   }
   el.className = 'msg ' + (r.found && r.found.length > 0 ? 'ok' : 'err');
   el.textContent = text;
+}
+
+async function uploadBooks() {
+  const input = document.getElementById('bookFiles');
+  const files = input.files;
+  if (!files || files.length === 0) {
+    showMsg('uploadMsg', false, '请先选择文件');
+    return;
+  }
+  const msgEl = document.getElementById('uploadMsg');
+  const resEl = document.getElementById('uploadResults');
+  msgEl.className = 'msg ok';
+  msgEl.textContent = '正在上传 ' + files.length + ' 个文件到Kindle，请稍候（大文件需较长时间）...';
+  resEl.innerHTML = '';
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  try {
+    const r = await fetch('/api/kindle/upload', { method: 'POST', body: fd });
+    const d = await r.json();
+    msgEl.className = 'msg ' + (d.ok ? 'ok' : 'err');
+    msgEl.textContent = d.msg;
+    if (d.results) {
+      let html = '<div style="margin-top:6px;">';
+      for (const item of d.results) {
+        html += '<div style="font-size:12px;margin:2px 0;color:' + (item.ok ? '#1a8f5c' : '#c0392b') + ';">'
+              + (item.ok ? '[成功] ' : '[失败] ') + item.file + ' - ' + item.msg + '</div>';
+      }
+      html += '</div>';
+      resEl.innerHTML = html;
+    }
+    input.value = '';
+  } catch (e) {
+    msgEl.className = 'msg err';
+    msgEl.textContent = '上传请求失败: ' + e.message;
+  }
 }
 
 async function saveConfig() {

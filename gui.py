@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """Kindle Dashboard 控制面板（Flask Web GUI）
-功能：查看/修改配置、立即刷新、启动/停止自动刷新、查看日志
+功能：查看/修改配置、立即刷新、启动/停止自动刷新、查看日志、传书到Kindle
 访问：http://localhost:8080/
 """
 import os
+import re
 import sys
 import json
 import time
+import uuid
+import base64
 import signal
 import subprocess
 import platform
@@ -352,6 +355,83 @@ def api_kindle_discover():
     })
 
 
+ALLOWED_UPLOAD_EXT = {".epub", ".mobi", ".azw3", ".azw", ".pdf", ".txt",
+                      ".fb2", ".cbz", ".cbr", ".docx", ".html"}
+MAX_UPLOAD_MB = 25
+KINDLE_DOCS_DIR = "/mnt/us/documents"
+
+
+def _chunk_ssh_put(host, b64data, remote_path):
+    """分块base64传输数据到Kindle（dropbear对大stdin不稳，分小块传）"""
+    from refresh import ssh_run
+    CHUNK = 180000
+    total = (len(b64data) + CHUNK - 1) // CHUNK
+    for i in range(total):
+        part = b64data[i * CHUNK:(i + 1) * CHUNK]
+        op = ">" if i == 0 else ">>"
+        ok, out = ssh_run(host, f"base64 -d {op} {remote_path} && echo OK{i}",
+                          retries=2, timeout=240, stdin_data=part)
+        if not ok or f"OK{i}" not in str(out):
+            return False, f"传输中断（块{i + 1}/{total}）"
+    return True, "ok"
+
+
+@app.route("/api/kindle/upload", methods=["POST"])
+def api_kindle_upload():
+    """上传书籍到Kindle documents/（免USB）"""
+    from settings import KINDLE_HOST
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"ok": False, "msg": "未收到文件"})
+
+    results = []
+    for f in files:
+        name = f.filename or ""
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in ALLOWED_UPLOAD_EXT:
+            results.append({"file": name, "ok": False,
+                            "msg": f"不支持格式 {ext or '(无扩展名)'}"})
+            continue
+        # 文件名安全化（去shell危险字符，保留中文）
+        safe = re.sub(r"['\"`;$&|<>()\s]+", "_", os.path.basename(name))
+        if not safe:
+            results.append({"file": name, "ok": False, "msg": "文件名非法"})
+            continue
+        # 保存到本地临时
+        tmp = OUTPUT_DIR / f".up_{uuid.uuid4().hex}{ext}"
+        try:
+            f.save(tmp)
+            size = tmp.stat().st_size
+            if size == 0:
+                raise ValueError("空文件")
+            if size > MAX_UPLOAD_MB * 1024 * 1024:
+                results.append({"file": name, "ok": False,
+                                "msg": f"超过{MAX_UPLOAD_MB}MB限制"})
+                continue
+            b64data = base64.b64encode(tmp.read_bytes())
+        except Exception as e:
+            results.append({"file": name, "ok": False, "msg": f"读取失败: {e}"})
+            continue
+        finally:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        remote_path = f"{KINDLE_DOCS_DIR}/{safe}"
+        ok, msg = _chunk_ssh_put(KINDLE_HOST, b64data, remote_path)
+        if ok:
+            from refresh import log
+            log(f"已上传书籍: {safe} ({size // 1024}KB) → documents/")
+            results.append({"file": name, "ok": True, "msg": f"已上传到 documents/{safe}"})
+        else:
+            results.append({"file": name, "ok": False, "msg": msg})
+
+    ok_any = any(r["ok"] for r in results)
+    return jsonify({"ok": ok_any, "results": results,
+                    "msg": f"完成：成功{sum(1 for r in results if r['ok'])}个 / 失败{sum(1 for r in results if not r['ok'])}个"})
+
+
 def _safe_print(msg):
     """安全打印（pythonw无控制台时print会崩溃）"""
     try:
@@ -372,4 +452,4 @@ if __name__ == "__main__":
     _safe_print("访问 http://localhost:8080/")
     _safe_print("停止服务: stop_gui.bat")
     _safe_print("=" * 40)
-    app.run(host="0.0.0.0", port=8080, debug=False)
+    app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)
