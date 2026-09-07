@@ -23,8 +23,16 @@ if [ -f "$PID_FILE" ]; then
 fi
 # 记录当前PID
 echo $$ > "$PID_FILE"
-# 退出时清理PID文件
-trap 'rm -f "$PID_FILE"' EXIT
+# 退出时清理：删PID文件 + 恢复系统默认（防屏保/防待机属性必须还原，否则原生/KOReader不锁屏）
+cleanup() {
+  rm -f "$PID_FILE"
+  lipc-set-prop com.lab126.powerd preventScreenSaver 0 2>/dev/null
+  lipc-set-prop com.lab126.powerd deferSuspend 0 2>/dev/null
+  log "keepalive退出，已恢复系统默认待机/锁屏行为"
+}
+# busybox ash被信号杀死时不执行EXIT trap：收到TERM/INT先exit(0)再走EXIT trap清理
+trap 'cleanup' EXIT
+trap 'exit 0' HUP INT TERM
 
 # 开机自启时延迟启动（等待framework启动完成，避免冲突）
 # 手动启动时通过参数 --no-delay 跳过延迟
